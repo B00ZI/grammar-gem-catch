@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#171918" />
+<title>Grammar Gem Catch — Possessive Determiners Arcade</title>
+
+<link rel="stylesheet" href="./vendor/fonts.css" />
+
+<script src="./vendor/tailwind.js"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          grotesk: ['"Fredoka"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        },
+        colors: {
+          // NOTE: never name a color `base` — it collides with Tailwind's
+          // `text-base` font-size utility and painted text dark-on-dark.
+          // `lime` is the historical token name; the accent itself is sky blue.
+          ink: '#F2F0E7', dim: '#929990', lime: '#6BB6F3',
+          surface: '#222623', line: '#363D37',
+        },
+      },
+    },
+  };
+</script>
+
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #171918;
+    --surface: #222623;
+    --line: #363D37;
+    --ink: #F2F0E7;
+    --dim: #929990;
+    /* Accent — sky blue (same intensity level as the old lime; the
+       `--lime`/`lime` token names are kept so nothing else breaks). */
+    --lime: #6BB6F3;
+    --coral: #D98270;
+  }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Core function never depends on external CSS: overlay toggling and the
+     aria-live region work even if the Tailwind runtime fails to load. */
+  .hidden { display: none !important; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+
+  /* ---------- Shared ---------- */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+  }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: 'Fredoka', sans-serif; font-weight: 700;
+    border-radius: 12px; cursor: pointer;
+    transition: background .15s ease, border-color .15s ease, transform .15s cubic-bezier(.34,1.56,.64,1);
+  }
+  .btn:active { transform: scale(1.05, .92); } /* jelly squash */
+  .btn-primary { background: var(--lime); color: #171918; border: 1px solid var(--lime); }
+  .btn-primary:hover { background: #8cc9f6; }
+  .btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  .btn-ghost:hover { border-color: #4a544c; background: rgba(255,255,255,.03); }
+  .btn-icon {
+    width: 32px; height: 32px; border-radius: 9px;
+    border: 1px solid var(--line); background: transparent; color: var(--dim);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: .75rem;
+    cursor: pointer;
+    transition: border-color .15s ease, color .15s ease, transform .15s cubic-bezier(.34,1.56,.64,1);
+    flex-shrink: 0;
+  }
+  @media (min-width: 768px) { .btn-icon { width: 36px; height: 36px; font-size: .8rem; } }
+  .btn-icon:hover { color: var(--ink); border-color: #4a544c; }
+  .btn-icon:active { transform: scale(.86); }
+  .kbd {
+    display: inline-block; min-width: 1.45rem; margin-right: .18rem;
+    padding: .16rem .4rem; border-radius: 6px;
+    border: 1px solid var(--line); background: #1b1e1c; color: var(--dim);
+    font-family: 'Fredoka', sans-serif; font-size: .58rem; font-weight: 700;
+    text-align: center;
+  }
+  .label { /* tiny uppercase section label */
+    font-family: 'Fredoka', sans-serif; font-weight: 700;
+    font-size: .58rem; letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
+  }
+
+  /* ---------- HUD ---------- */
+  .hud-label {
+    display: block; font-family: 'Fredoka', sans-serif; font-weight: 500;
+    font-size: .52rem; letter-spacing: .14em; text-transform: uppercase; color: var(--dim);
+  }
+  .hud-num {
+    font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: .85rem;
+    color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1.1;
+  }
+  @media (min-width: 768px) { .hud-num { font-size: 1rem; } }
+  #combo.on { color: var(--lime); }
+  /* Level & combo sit in the middle of the HUD as clean chips */
+  .stat-chip {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-width: 3.6rem; padding: .18rem .55rem;
+    border: 1px solid var(--line); border-radius: 9px; background: var(--surface);
+  }
+  #comboChip.on { border-color: rgba(107,182,243,.55); background: rgba(107,182,243,.09); }
+  #comboChip.on .hud-num { color: var(--lime); }
+  .chip-jump { animation: chipJump .4s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes chipJump { 40% { scale: 1.2; } }
+  /* Compact HUD for the narrowest phones */
+  @media (max-width: 359px) {
+    header.hud { padding-left: .5rem; padding-right: .5rem; }
+    .hud-label { font-size: .45rem; letter-spacing: .1em; }
+    .hud-num { font-size: .78rem; }
+    .stat-chip { min-width: 2.9rem; padding: .15rem .4rem; }
+    [data-heart] { width: 11px; height: 11px; }
+    .btn-icon { width: 28px; height: 28px; }
+  }
+
+  /* Lives: real hearts — filled coral while alive, dim outline when lost */
+  [data-heart] {
+    display: inline-block; width: 13px; height: 13px; flex-shrink: 0;
+    fill: var(--coral);
+    transition: fill .15s ease, opacity .15s ease;
+  }
+  [data-heart][data-lost] {
+    fill: none; stroke: var(--line); stroke-width: 2.2; opacity: .85;
+  }
+
+  /* ---------- Prompt ---------- */
+  .owner-tag {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: .2rem .55rem; border-radius: 999px;
+    border: 1px solid rgba(107,182,243,.45); background: rgba(107,182,243,.08);
+    font-family: 'Fredoka', sans-serif; font-weight: 700;
+    font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; color: var(--lime);
+    white-space: nowrap;
+  }
+  .owner-tag b { font-weight: 700; text-transform: none; letter-spacing: 0; }
+  .prompt-blank {
+    display: inline-block; min-width: 3em; text-align: center;
+    color: var(--lime); border-bottom: 2px solid var(--lime);
+    padding: 0 .4em; margin: 0 .1em;
+  }
+  /* Filled after a correct catch: the word sits in a highlighted lime chip */
+  .prompt-blank.filled {
+    border-bottom: 0; font-weight: 800;
+    background: rgba(107,182,243,.14); border: 1px solid rgba(107,182,243,.5);
+    border-radius: 8px; padding: .05em .5em;
+    animation: blankFill .25s ease-out;
+  }
+  @keyframes blankFill { from { scale: .7; opacity: 0; } to { scale: 1; opacity: 1; } }
+
+  /* ---------- FEVER ---------- */
+  .fever-track { flex: 1; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .fever-fill { height: 100%; width: 0; border-radius: 3px; background: var(--lime); transition: width .25s ease-out; }
+  .fever-active .fever-fill { animation: feverBlink 1s ease-in-out infinite alternate; }
+  @keyframes feverBlink { from { opacity: 1; } to { opacity: .55; } }
+  #feverWrap.fever-active .label { color: var(--lime); }
+  .fever-timer {
+    font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: .6rem;
+    color: var(--lime); background: rgba(107,182,243,.1);
+    border: 1px solid rgba(107,182,243,.4); border-radius: 999px; padding: .1rem .45rem;
+  }
+
+  /* ---------- Play area ---------- */
+  .lane {
+    position: relative; flex: 1 1 0; height: 100%;
+    cursor: pointer; touch-action: none;
+    border-right: 1px solid var(--line);
+    transition: background .15s ease;
+  }
+  .lane:last-child { border-right: 0; }
+  .lane[data-active="true"] { background: rgba(107,182,243,.055); }
+  .lane-num {
+    position: absolute; top: .4rem; left: 50%; transform: translateX(-50%);
+    font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: .62rem;
+    color: rgba(146,153,144,.55); pointer-events: none; transition: color .15s ease;
+  }
+  .lane[data-active="true"] .lane-num { color: var(--lime); }
+
+  /* Gems — flat hexagon tokens, dark text on muted fills */
+  .gem {
+    position: absolute; left: 50%; top: 0;
+    width: clamp(56px, 68%, 94px); aspect-ratio: 1 / 1.12; /* side margin keeps wobble inside the lane */
+    transform: translate(-50%, 0);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    display: grid; place-items: center;
+    will-change: transform;
+    filter: drop-shadow(0 3px 0 rgba(0,0,0,.3)); /* chunky sticker lip */
+    animation: gemIn .28s cubic-bezier(.34,1.56,.64,1) both,
+               gemWobble 1.6s ease-in-out .3s infinite alternate;
+  }
+  @keyframes gemIn { from { scale: .3; opacity: 0; } to { scale: 1; opacity: 1; } }
+  @keyframes gemWobble { from { rotate: -1.5deg; } to { rotate: 1.5deg; } }
+  .gem > span {
+    font-weight: 900; font-size: clamp(1.05rem, 3.6vw, 1.4rem);
+    color: #171918; padding: 0 .2rem; text-align: center; letter-spacing: .01em;
+  }
+  /* glossy candy shine — clipped together with the hexagon */
+  .gem::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(115deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,.14) 30%, transparent 46%);
+  }
+  .gem-1 { background: #6BB6F3; } /* candy blue */
+  .gem-2 { background: #F794C8; } /* candy pink */
+  .gem-3 { background: #FFD65C; } /* sunshine yellow */
+  .gem-4 { background: #7FE3B0; } /* mint */
+
+  .gem.gem-pop { animation: gemPop .22s ease-in forwards; }
+  @keyframes gemPop {
+    40% { scale: 1.22; opacity: 1; }
+    100% { scale: .15; opacity: 0; }
+  }
+  .gem.gem-pop.bad { filter: grayscale(.7) brightness(.72); }
+
+  /* Wrong pick → the correct gem stays on screen as the answer reveal */
+  .gem.gem-correct {
+    filter: drop-shadow(0 0 7px rgba(107,182,243,.95)) drop-shadow(0 0 2px rgba(107,182,243,.9));
+    animation: revealPulse .7s ease-in-out infinite alternate;
+  }
+  @keyframes revealPulse { from { scale: 1; } to { scale: 1.1; } }
+  .gem.gem-fade { animation: gemFade .18s ease-out forwards; }
+  @keyframes gemFade { to { opacity: 0; scale: .8; } }
+
+  /* ---------- Robot ---------- */
+  .robot-track {
+    display: flex; width: 100%;
+    transform: translateX(calc((var(--lane, 1) - 1) * 25%));
+    transition: transform .16s cubic-bezier(.2,.8,.2,1);
+  }
+  .robot-slot { width: 25%; display: flex; align-items: flex-end; justify-content: center; padding-bottom: .5rem; }
+  .robot-btn {
+    position: relative; display: block; padding: 0; border: 0; background: none;
+    cursor: pointer; pointer-events: auto; -webkit-tap-highlight-color: transparent;
+  }
+  .robot-btn:focus-visible { outline: 2px solid var(--lime); outline-offset: 4px; border-radius: 9999px; }
+  .robot-btn.fire .robot-body { animation: recoil .25s ease-out; }
+  @keyframes recoil {
+    0% { transform: translateY(3px) scale(.94); }
+    60% { transform: translateY(-1px) scale(1.03); }
+    100% { transform: translateY(0) scale(1); }
+  }
+  /* Blinking eyes + combo grin */
+  .eye { transform-box: fill-box; transform-origin: center; animation: blink 4.8s infinite; }
+  @keyframes blink { 0%, 93%, 100% { transform: scaleY(1); } 95.5% { transform: scaleY(.06); } }
+  .smile { display: none; }
+  .robot-track.combo-on .smile { display: block; }
+  .robot-track.combo-on .mouth { display: none; }
+  .laser-beam {
+    position: absolute; left: 50%; bottom: 100%;
+    width: 4px; height: 75vh; border-radius: 9999px;
+    background: var(--lime);
+    transform: translateX(-50%) scaleY(0); transform-origin: bottom;
+    opacity: 0; pointer-events: none;
+  }
+  .robot-btn.fire .laser-beam { animation: laser .26s ease-out; }
+  @keyframes laser {
+    0% { transform: translateX(-50%) scaleY(0); opacity: .95; }
+    35% { transform: translateX(-50%) scaleY(1); opacity: .95; }
+    100% { transform: translateX(-50%) scaleY(1); opacity: 0; }
+  }
+
+  /* ---------- Feedback FX ---------- */
+  .fx-correct, .fx-flash-red { position: absolute; inset: 0; animation: fade .4s ease-out forwards; pointer-events: none; }
+  .fx-correct { background: rgba(107,182,243,.13); }
+  .fx-flash-red { background: rgba(217,130,112,.15); }
+  .fx-fever {
+    position: fixed; inset: 0; z-index: 40; pointer-events: none;
+    background: rgba(107,182,243,.08);
+    animation: fade .5s ease-out forwards;
+  }
+  @keyframes fade { from { opacity: 1; } to { opacity: 0; } }
+
+  /* ---------- Confetti (level-up / fever celebrations) ---------- */
+  .confetti {
+    position: fixed; z-index: 45; top: -16px;
+    width: 8px; height: 13px; border-radius: 2px;
+    pointer-events: none;
+    animation: confettiFall 1.15s cubic-bezier(.3,.6,.5,1) forwards;
+  }
+  @keyframes confettiFall {
+    0% { opacity: 1; translate: 0 0; rotate: 0deg; }
+    100% { opacity: 0; translate: var(--dx, 0) 82vh; rotate: var(--spin, 540deg); }
+  }
+
+  #playArea.fx-wrong { animation: shake .25s ease-in-out; }
+  @keyframes shake {
+    10%, 90% { transform: translateX(-2px); }
+    30%, 50%, 70% { transform: translateX(-4px); }
+    40%, 60% { transform: translateX(4px); }
+  }
+
+  .popup {
+    position: absolute; left: 50%; z-index: 5;
+    transform: translateX(-50%);
+    font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 1.02rem;
+    padding: .18rem .62rem; border-radius: 12px;
+    background: var(--sticker, #6BB6F3); color: #171918;
+    border: 2px solid rgba(23,25,24,.22); box-shadow: 0 3px 0 rgba(0,0,0,.28);
+    animation: stickerPop .95s cubic-bezier(.34,1.56,.64,1) forwards;
+    pointer-events: none; white-space: nowrap;
+  }
+  @keyframes stickerPop {
+    0% { opacity: 0; scale: .3; }
+    30% { opacity: 1; scale: 1.15; }
+    52% { scale: .97; }
+    70% { opacity: 1; scale: 1; }
+    100% { opacity: 0; translate: 0 -26px; }
+  }
+
+  /* ---------- Teaching card ---------- */
+  #hintBar {
+    position: absolute; inset: auto .75rem .75rem .75rem; z-index: 30;
+    overflow: hidden;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    padding: 1rem 1.1rem; text-align: left;
+    animation: popIn .3s cubic-bezier(.34,1.56,.64,1);
+  }
+  #hintTitle { font-size: .68rem; letter-spacing: .14em; }
+  .hint-answer { color: var(--lime); font-weight: 900; }
+
+  /* ---------- Overlays ---------- */
+  .overlay {
+    position: absolute; inset: 0; z-index: 30;
+    display: flex; align-items: center; justify-content: center; padding: 1rem;
+    background: rgba(23,25,24,.9);
+  }
+  .overlay-panel {
+    width: 100%; max-width: 20rem; padding: 1.4rem 1.2rem; text-align: center;
+    animation: popIn .3s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes popIn { from { scale: .75; opacity: 0; } to { scale: 1; opacity: 1; } }
+  .overlay-title {
+    font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 1.3rem;
+    letter-spacing: .02em; color: var(--ink);
+  }
+
+  /* ---------- Welcome ---------- */
+  #overlayMenu {
+    position: absolute; inset: 0; z-index: 40;
+    overflow-y: auto; overscroll-contain;
+    background: var(--bg);
+    display: flex; justify-content: center;
+    padding: 1.5rem 1rem 1.25rem;
+  }
+  .welcome-inner { width: 100%; max-width: 26rem; display: flex; flex-direction: column; gap: 1rem; }
+  .rule-card { padding: .8rem .9rem; }
+  .rule-card ul { margin-top: .5rem; display: flex; flex-direction: column; gap: .35rem; }
+  .pronoun-chip {
+    display: inline-block; padding: .25rem .6rem; border-radius: 999px;
+    border: 1px solid rgba(107,182,243,.4); color: var(--lime);
+    font-weight: 700; font-size: .72rem; background: rgba(107,182,243,.06);
+  }
+  .pronoun-chip.locked { border-color: var(--line); color: var(--dim); background: transparent; }
+  .step-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.15rem; height: 1.15rem; border-radius: 999px; margin-right: .45rem;
+    background: rgba(107,182,243,.12); color: var(--lime);
+    font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: .6rem;
+    flex-shrink: 0;
+  }
+
+  /* ---------- Short landscape phones ---------- */
+  @media (max-height: 520px) {
+    header.hud { padding-top: .3rem; padding-bottom: .3rem; }
+    .lane-num { top: .2rem; font-size: .5rem; }
+    .robot-body { width: 44px; height: 44px; }
+    .hud-num { font-size: .8rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .robot-body, .fever-active .fever-fill { animation: none !important; }
+    .robot-btn.fire .laser-beam, .robot-btn.fire .robot-body { animation: none !important; }
+    .gem { animation: none !important; }
+    .gem.gem-pop, .gem.gem-fade { animation-duration: .01ms !important; }
+    .gem.gem-correct { animation: none !important; }
+    .prompt-blank.filled { animation-duration: .01ms !important; }
+    .fx-wrong { animation: none !important; }
+    .popup, .overlay-panel, #hintBar, .chip-jump, .eye { animation: none !important; }
+    .confetti { display: none !important; }
+  }
+</style>
+</head>
+
+<body>
+
+<div id="app" class="relative z-10 mx-auto flex h-[100dvh] w-full max-w-3xl flex-col overflow-hidden">
+
+  <!-- ══════════ WELCOME / HOME ══════════ -->
+  <div id="overlayMenu">
+    <div class="welcome-inner">
+
+      <!-- Brand -->
+      <div class="flex items-center gap-2.5">
+        <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
+          <polygon points="12,2 22,7.5 22,16.5 12,22 2,16.5 2,7.5" fill="#6BB6F3"/>
+        </svg>
+        <span class="label" style="color: var(--dim)">Grammar arcade</span>
+      </div>
+
+      <div>
+        <h1 class="font-grotesk text-[1.75rem] font-bold leading-tight tracking-tight text-ink md:text-[2.1rem]">
+          Grammar Gem&nbsp;Catch
+        </h1>
+        <p class="mt-1.5 text-sm text-dim">
+          Catch the possessive determiner that belongs to the <b class="text-lime font-semibold">owner</b>.
+        </p>
+      </div>
+
+      <!-- Illustration: robot + gem -->
+      <div class="panel flex items-center justify-center gap-6 py-4" aria-hidden="true">
+        <svg width="56" height="56" viewBox="0 0 48 48" fill="none">
+          <line x1="24" y1="4" x2="24" y2="10" stroke="#929990" stroke-width="2"/>
+          <circle cx="24" cy="4" r="2.6" fill="#6BB6F3"/>
+          <rect x="8" y="11" width="32" height="24" rx="7" fill="#F2F0E7"/>
+          <rect class="eye" x="13" y="18" width="8" height="7" rx="2.5" fill="#222623"/>
+          <rect class="eye" x="27" y="18" width="8" height="7" rx="2.5" fill="#222623"/>
+          <rect class="mouth" x="18" y="29" width="12" height="2.4" rx="1.2" fill="#222623"/>
+          <path class="smile" d="M16.5 28.5 Q24 34.5 31.5 28.5" stroke="#222623" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+          <rect x="12" y="37" width="8" height="5" rx="2" fill="#929990"/>
+          <rect x="28" y="37" width="8" height="5" rx="2" fill="#929990"/>
+        </svg>
+        <svg width="52" height="58" viewBox="0 0 52 58" aria-hidden="true">
+          <polygon points="26,1 51,14.5 51,43.5 26,57 1,43.5 1,14.5" fill="#6BB6F3"/>
+          <text x="26" y="34" text-anchor="middle" font-family="Inter, sans-serif" font-weight="800" font-size="15" fill="#171918">my</text>
+        </svg>
+      </div>
+
+      <!-- Start -->
+      <button id="startBtn" type="button"
+              class="btn btn-primary w-full py-3.5 text-base tracking-wide">
+        Start game
+      </button>
+      <p class="label -mt-1.5 text-center">Best <span id="bestScoreMenu" style="color: var(--ink)">000000</span></p>
+
+      <!-- Rules -->
+      <section class="panel rule-card">
+        <h2 class="label">How to play</h2>
+        <ul class="text-[.8rem] leading-relaxed text-dim">
+          <li class="flex"><span class="step-num">1</span><span>Read the sentence and the <span class="owner-tag" style="font-size:.6rem">Owner <b>they</b></span> badge.</span></li>
+          <li class="flex"><span class="step-num">2</span><span>Four gems fall — exactly one completes the sentence.</span></li>
+          <li class="flex"><span class="step-num">3</span><span>Grab it. <b class="text-ink">Higher catch = more points.</b></span></li>
+        </ul>
+      </section>
+
+      <section class="panel rule-card">
+        <h2 class="label">Scoring</h2>
+        <ul class="grid grid-cols-2 gap-x-4 gap-y-1 text-[.72rem] text-dim">
+          <li><b class="text-ink">High catch</b> — top 40% ×2</li>
+          <li><b class="text-ink">Combo</b> — 4 in a row = +1×</li>
+          <li><b class="text-ink">Fever</b> — fill the bar = ×2</li>
+          <li><b class="text-ink">Lives</b> — 3 · wrong = −1</li>
+          <li class="col-span-2"><b class="text-lime">Level up</b> — every 8 correct: +1 life, faster gems</li>
+        </ul>
+      </section>
+
+      <section class="panel rule-card">
+        <h2 class="label">Controls</h2>
+        <div class="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[.75rem] text-dim">
+          <div><kbd class="kbd">1</kbd><kbd class="kbd">2</kbd><kbd class="kbd">3</kbd><kbd class="kbd">4</kbd> grab lane</div>
+          <div><kbd class="kbd">←</kbd><kbd class="kbd">→</kbd> move robot</div>
+          <div><kbd class="kbd">SPACE</kbd> claim</div>
+          <div><kbd class="kbd">P</kbd> pause</div>
+          <div class="col-span-2 text-center text-dim">Tap a lane — or the robot — to grab.</div>
+        </div>
+      </section>
+
+      <!-- Pronouns -->
+      <div class="flex flex-wrap items-center justify-center gap-1.5">
+        <span class="pronoun-chip">my</span>
+        <span class="pronoun-chip">your</span>
+        <span class="pronoun-chip">our</span>
+        <span class="pronoun-chip">their</span>
+        <span class="pronoun-chip locked">his</span>
+        <span class="pronoun-chip locked">her</span>
+        <span class="pronoun-chip locked">its</span>
+      </div>
+      <p class="label -mt-2 text-center">his · her · its unlock at level 3</p>
+
+    </div>
+  </div>
+
+  <!-- ── HUD ── -->
+  <header class="hud flex shrink-0 items-center justify-between px-3 py-2 md:px-6">
+    <!-- Left: score -->
+    <div class="flex flex-1 items-center">
+      <div>
+        <span class="hud-label">Score</span>
+        <b id="score" class="hud-num">000000</b>
+      </div>
+    </div>
+    <!-- Center: level + combo chips -->
+    <div class="flex items-center gap-1.5 md:gap-2.5">
+      <div class="stat-chip">
+        <span class="hud-label">Level</span>
+        <b id="level" class="hud-num">1</b>
+      </div>
+      <div id="comboChip" class="stat-chip">
+        <span class="hud-label">Combo</span>
+        <b id="combo" class="hud-num">&times;1</b>
+      </div>
+    </div>
+    <!-- Right: lives + buttons -->
+    <div class="flex flex-1 items-center justify-end gap-2 md:gap-3">
+      <div id="lives" class="flex items-center gap-1" aria-label="Lives" role="img">
+        <svg data-heart viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35Z"/></svg>
+        <svg data-heart viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35Z"/></svg>
+        <svg data-heart viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35Z"/></svg>
+      </div>
+      <button id="pauseBtn" type="button" class="btn-icon" aria-label="Pause">
+        <svg id="iconPause" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+          <rect x="1" y="1" width="3.4" height="10" rx="1.2" fill="currentColor"/>
+          <rect x="7.6" y="1" width="3.4" height="10" rx="1.2" fill="currentColor"/>
+        </svg>
+        <svg id="iconPlay" class="hidden" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+          <path d="M2.5 1.5 L10.5 6 L2.5 10.5 Z" fill="currentColor"/>
+        </svg>
+      </button>
+      <button id="muteBtn" type="button" class="btn-icon" aria-label="Toggle sound" aria-pressed="false">
+        <svg id="iconSoundOn" width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M11 5 6 9H3v6h3l5 4V5Z" fill="currentColor"/>
+          <path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M18.5 5.5a9 9 0 0 1 0 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <svg id="iconSoundOff" class="hidden" width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M11 5 6 9H3v6h3l5 4V5Z" fill="currentColor"/>
+          <line x1="16" y1="9" x2="22" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <line x1="22" y1="9" x2="16" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Prompt ── -->
+  <div class="shrink-0 px-4 py-2 md:px-6 md:py-2.5">
+    <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+      <span class="owner-tag">Owner: <b id="ownerName">they</b></span>
+      <p id="prompt" class="text-[1.05rem] font-semibold leading-snug text-ink md:text-[1.2rem]"></p>
+    </div>
+  </div>
+
+  <!-- ── FEVER ── -->
+  <div id="feverWrap" class="flex shrink-0 items-center gap-2.5 px-4 pb-2 md:px-6">
+    <span class="label">Fever</span>
+    <div class="fever-track"><div id="feverFill" class="fever-fill"></div></div>
+    <span id="feverTimer" class="fever-timer hidden">×2 8s</span>
+  </div>
+
+  <!-- ── Play area: 4 lanes ── -->
+  <main id="playArea"
+        class="relative mx-4 min-h-0 flex-1 overflow-hidden rounded-xl border border-line bg-surface md:mx-6">
+
+    <div class="absolute inset-0 flex" id="laneRow">
+      <!-- Lane 1 -->
+      <div class="lane" data-lane="1" data-active="true">
+        <span class="lane-num">1</span>
+        <!-- menu demo gem: cleared by the spawner when wave 1 spawns -->
+        <div class="gems" data-gems="1">
+          <div class="gem gem-1" data-demo style="transform: translate(-50%, 140px)"><span>my</span></div>
+        </div>
+      </div>
+      <!-- Lane 2 -->
+      <div class="lane" data-lane="2">
+        <span class="lane-num">2</span>
+        <div class="gems" data-gems="2">
+          <div class="gem gem-2" data-demo style="transform: translate(-50%, 260px)"><span>their</span></div>
+        </div>
+      </div>
+      <!-- Lane 3 -->
+      <div class="lane" data-lane="3">
+        <span class="lane-num">3</span>
+        <div class="gems" data-gems="3">
+          <div class="gem gem-3" data-demo style="transform: translate(-50%, 90px)"><span>our</span></div>
+        </div>
+      </div>
+      <!-- Lane 4 -->
+      <div class="lane" data-lane="4">
+        <span class="lane-num">4</span>
+        <div class="gems" data-gems="4">
+          <div class="gem gem-4" data-demo style="transform: translate(-50%, 320px)"><span>your</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Robot indicator -->
+    <div class="pointer-events-none absolute inset-x-0 bottom-0 z-10">
+      <div class="robot-track" id="robot" style="--lane: 1">
+        <div class="robot-slot">
+          <button id="robotBtn" type="button" class="robot-btn"
+                  aria-label="Fire the robot's laser to grab this lane's gem">
+            <span class="laser-beam" aria-hidden="true"></span>
+            <svg class="robot-body" width="64" height="64" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+              <line x1="24" y1="4" x2="24" y2="10" stroke="#929990" stroke-width="2"/>
+              <circle cx="24" cy="4" r="2.6" fill="#6BB6F3"/>
+              <rect x="8" y="11" width="32" height="24" rx="7" fill="#F2F0E7"/>
+              <rect class="eye" x="13" y="18" width="8" height="7" rx="2.5" fill="#222623"/>
+              <rect class="eye" x="27" y="18" width="8" height="7" rx="2.5" fill="#222623"/>
+              <rect class="mouth" x="18" y="29" width="12" height="2.4" rx="1.2" fill="#222623"/>
+              <path class="smile" d="M16.5 28.5 Q24 34.5 31.5 28.5" stroke="#222623" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+              <rect x="12" y="37" width="8" height="5" rx="2" fill="#929990"/>
+              <rect x="28" y="37" width="8" height="5" rx="2" fill="#929990"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="fxLayer" class="pointer-events-none absolute inset-0 z-20"></div>
+
+    <!-- Pause overlay -->
+    <div id="overlayPause" class="overlay hidden">
+      <div class="panel overlay-panel">
+        <p class="overlay-title">Paused</p>
+        <div class="mt-4 flex items-center justify-center gap-2.5">
+          <button id="resumeBtn" type="button" class="btn btn-primary px-6 py-2.5 text-sm">Resume</button>
+          <button id="pauseHomeBtn" type="button" class="btn btn-ghost px-5 py-2.5 text-sm">Home</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Level-up overlay -->
+    <div id="overlayLevelUp" class="overlay hidden">
+      <div class="panel overlay-panel">
+        <p class="label">Level up</p>
+        <p id="levelUpText" class="overlay-title mt-1 text-lime">LEVEL 2</p>
+      </div>
+    </div>
+
+    <!-- Game over overlay -->
+    <div id="overlayGameOver" class="overlay hidden">
+      <div class="panel overlay-panel">
+        <p class="overlay-title">Game over</p>
+        <div class="mx-auto mt-3 w-full max-w-[13rem] space-y-1 text-left">
+          <div class="flex items-baseline justify-between border-b border-line pb-1">
+            <span class="label">Score</span>
+            <b id="finalScore" class="hud-num">000000</b>
+          </div>
+          <div class="flex items-baseline justify-between">
+            <span class="label">Level · Best</span>
+            <span class="font-grotesk text-sm font-bold text-dim">
+              <span id="finalLevel">1</span> · <span id="bestScoreOver">000000</span>
+            </span>
+          </div>
+        </div>
+        <div class="mt-4 flex items-center justify-center gap-2.5">
+          <button id="restartBtn" type="button" class="btn btn-primary px-7 py-2.5 text-sm">Retry</button>
+          <button id="homeBtn" type="button" class="btn btn-ghost px-6 py-2.5 text-sm">Home</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Teaching card: answer + why; stays until the player taps "Got it" -->
+    <div id="hintBar" class="hidden">
+      <div class="flex items-center gap-3">
+        <div class="min-w-0 flex-1">
+          <p id="hintTitle" class="label" style="color: var(--lime)">Missed — now you know</p>
+          <p id="hintSentence" class="mt-1.5 text-[.95rem] font-semibold leading-snug text-ink md:text-[1.1rem]"></p>
+          <p id="hintWhy" class="mt-1 text-[.78rem] leading-snug text-dim md:text-[.84rem]"></p>
+        </div>
+        <button id="understoodBtn" type="button"
+                class="btn btn-primary min-h-12 shrink-0 px-5 py-2.5 text-[.72rem] tracking-wider uppercase">
+          Got it
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ── Legend ── -->
+  <footer class="shrink-0 px-4 py-2 md:px-6">
+    <div class="flex items-center justify-center gap-3 text-[.62rem] text-dim md:gap-5">
+      <span class="hidden md:inline"><kbd class="kbd">1–4</kbd> grab</span>
+      <span class="hidden md:inline"><kbd class="kbd">←→</kbd> move</span>
+      <span class="hidden md:inline"><kbd class="kbd">SPACE</kbd> claim</span>
+      <span class="hidden md:inline"><kbd class="kbd">P</kbd> pause</span>
+      <span class="md:hidden">Tap a lane to grab</span>
+    </div>
+  </footer>
+</div>
+
+<div id="ariaLive" class="sr-only" aria-live="polite"></div>
+
+<script type="module" src="./src/main.js?v=2"></script>
+<script>
+  // ES modules are blocked by CORS on file:// — the game needs a local server.
+  // This inline (non-module) script still runs there, so we can explain.
+  if (location.protocol === 'file:') {
+    const note = document.createElement('p');
+    note.className = 'rounded-lg border border-[#363D37] bg-[#222623] px-3 py-2 text-[.65rem] leading-relaxed text-[#929990]';
+    note.textContent = '⚠ Browsers block ES modules from file:// — start a local server instead: run  npx serve .  (or  python -m http.server) and open the URL it prints.';
+    document.getElementById('overlayMenu')?.appendChild(note);
+  } else {
+    // If the game code never booted (stale cache, offline, etc.), say so on the Start button.
+    setTimeout(() => {
+      if (!window.__ggc) {
+        const b = document.getElementById('startBtn');
+        if (b) { b.textContent = 'Press Ctrl+Shift+R to refresh'; b.style.color = '#171918'; }
+      }
+    }, 1500);
+  }
+</script>
+</body>
+</html>
