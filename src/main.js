@@ -188,6 +188,29 @@ $('#muteBtn')?.addEventListener('click', () => {
 });
 renderMute();
 
+/* ---------- theme (dark / light) ---------- */
+
+function applyTheme(theme, save) {
+  document.documentElement.dataset.theme = theme;
+  const light = theme === 'light';
+  // Sun invites you into light mode while dark; moon invites you back while light.
+  document.querySelectorAll('.theme-sun').forEach((n) => n.classList.toggle('hidden', light));
+  document.querySelectorAll('.theme-moon').forEach((n) => n.classList.toggle('hidden', !light));
+  document.querySelectorAll('.theme-btn').forEach((b) => b.setAttribute('aria-pressed', String(light)));
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', light ? '#F4F2E9' : '#171918');
+  if (save) { try { localStorage.setItem('ggc.theme', theme); } catch (e) {} }
+}
+
+// The head script already picked the starting theme (saved choice, else the
+// device setting) before first paint — here we only sync buttons + icons to it.
+applyTheme(document.documentElement.dataset.theme || 'dark', false);
+
+document.querySelectorAll('.theme-btn').forEach((b) => {
+  b.addEventListener('click', () => {
+    applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light', true);
+  });
+});
+
 /* ---------- best score (shown before any run exists) ---------- */
 
 const bestEl = $('#bestScoreMenu');

@@ -478,6 +478,14 @@ User request: more/better words, harder as levels grow, no repeats in a run, dif
 - [x] **Reading time preserved**: line higher + touch trigger cut the time-to-miss, so `fallTimeSec` 12 → **15.5** — measured 10.6s from spawn to touch at level 1 (same gentle pace as before); computed transform verified equal to engine position (no visual lag)
 - [x] Reveal-above-card, hearts, popup flow re-verified; 0 console errors
 
+### Post-v1 addition — Light mode ☀️ ✅ (complete, approved: "first visit follows device")
+- [x] **One palette drives everything**: Tailwind's color config now references the CSS variables (`ink: 'var(--ink)'` etc.) so a single `[data-theme]` swap restyles every Tailwind class; hardcoded leftovers moved into vars (`--scrim`, `--ghost-hover`, `--ghost-hover-line`, `--miss-line`, `--miss-tag`)
+- [x] **Light "paper" palette** (`html[data-theme="light"]`): warm paper `#F4F2E9` bg, white panels, near-black ink, deeper blue accent `#2E7CC4` (sky blue is too faint on white), deeper coral; gems/stickers/confetti/robot artwork identical in both modes; robot gets a subtle outline so the cream body reads on paper
+- [x] **Theme logic**: head script picks the theme before first paint (saved `ggc.theme` wins, else `prefers-color-scheme`) → no flash; `applyTheme()` in main.js syncs the ☀️/🌙 buttons, `aria-pressed`, and `<meta theme-color>`; toggling saves the choice
+- [x] **Toggle in two places**: `.theme-btn` (btn-icon, sun in dark / moon in light) in the home popup and in the pause card row; pause row (Resume/Home/sound/theme) measured 280px — fits the 318px panel
+- [x] Verified: device-follow on first visit, saved choice wins both ways, light palette computed on every surface (page/panel/text/accent via Tailwind + CSS/miss line/meta), both buttons stay in sync, claim works in light, dark unchanged, 0 console errors
+- Note: dev server had died mid-session and was restarted (`sh_13be7f4af001gwT6yWTVXFM4LK`)
+
 ### Known limitations (documented, not blocking)
 - Trusted-keyboard `:focus-visible` can't be simulated in the test harness — verified via CSSOM instead
 - `browser.press` doesn't reach page JS in the harness — all input tests use dispatched events through the real handlers

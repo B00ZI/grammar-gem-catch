@@ -8,6 +8,20 @@
 
 <link rel="stylesheet" href="./vendor/fonts.css" />
 
+<!-- Theme: first visit follows the device; a choice made with the in-game
+     toggle is saved to localStorage and always wins. Runs before paint →
+     no flash of the wrong colors. -->
+<script>
+  (function () {
+    var saved = null;
+    try { saved = localStorage.getItem('ggc.theme'); } catch (e) {}
+    var theme = saved === 'light' || saved === 'dark'
+      ? saved
+      : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.documentElement.dataset.theme = theme;
+  })();
+</script>
+
 <script src="./vendor/tailwind.js"></script>
 <script>
   tailwind.config = {
@@ -18,11 +32,13 @@
           sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
         },
         colors: {
+          // Every Tailwind color utility follows the CSS palette variables,
+          // so one [data-theme] swap restyles the whole game (dark/light).
           // NOTE: never name a color `base` — it collides with Tailwind's
           // `text-base` font-size utility and painted text dark-on-dark.
           // `lime` is the historical token name; the accent itself is sky blue.
-          ink: '#F2F0E7', dim: '#929990', lime: '#6BB6F3',
-          surface: '#222623', line: '#363D37',
+          ink: 'var(--ink)', dim: 'var(--dim)', lime: 'var(--lime)',
+          surface: 'var(--surface)', line: 'var(--line)',
         },
       },
     },
@@ -41,6 +57,36 @@
        `--lime`/`lime` token names are kept so nothing else breaks). */
     --lime: #6BB6F3;
     --coral: #D98270;
+    /* Derived colors (used to be hardcoded) */
+    --scrim: rgba(23,25,24,.9);            /* dim behind popups */
+    --ghost-hover: rgba(255,255,255,.03);
+    --ghost-hover-line: #4a544c;
+    --miss-line: rgba(217,130,112,.42);
+    --miss-tag: rgba(217,130,112,.7);
+  }
+
+  /* Light mode ("paper") — the in-game toggle writes data-theme on <html>.
+     Gems, stickers, confetti and the robot artwork stay identical in both
+     modes; only the palette behind them changes. */
+  html[data-theme="light"] {
+    color-scheme: light;
+    --bg: #F4F2E9;
+    --surface: #FFFFFF;
+    --line: #DCD8CA;
+    --ink: #242820;
+    --dim: #6A7168;
+    --lime: #2E7CC4;                       /* deeper blue — sky is too faint on paper */
+    --coral: #C4573F;
+    --scrim: rgba(244,242,233,.92);
+    --ghost-hover: rgba(23,25,24,.04);
+    --ghost-hover-line: #B7B2A2;
+    --miss-line: rgba(196,87,63,.5);
+    --miss-tag: rgba(196,87,63,.8);
+  }
+  /* Light mode: keep the cream robot readable against paper */
+  html[data-theme="light"] .robot-body,
+  html[data-theme="light"] .robot-art {
+    filter: drop-shadow(0 0 1.5px rgba(36,40,32,.6));
   }
 
   html, body {
@@ -77,7 +123,7 @@
   .btn-primary { background: var(--lime); color: #171918; border: 1px solid var(--lime); }
   .btn-primary:hover { background: #8cc9f6; }
   .btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
-  .btn-ghost:hover { border-color: #4a544c; background: rgba(255,255,255,.03); }
+  .btn-ghost:hover { border-color: var(--ghost-hover-line); background: var(--ghost-hover); }
   .btn-icon {
     width: 32px; height: 32px; border-radius: 9px;
     border: 1px solid var(--line); background: transparent; color: var(--dim);
@@ -342,7 +388,7 @@
   .overlay {
     position: absolute; inset: 0; z-index: 30;
     display: flex; align-items: center; justify-content: center; padding: 1rem;
-    background: rgba(23,25,24,.9);
+    background: var(--scrim);
   }
   .overlay-panel {
     width: 100%; max-width: 20rem; padding: 1.4rem 1.2rem; text-align: center;
@@ -358,12 +404,12 @@
   .miss-line {
     position: absolute; left: 0; right: 0; top: 0; z-index: 5;
     height: 2px; pointer-events: none;
-    background: rgba(217,130,112,.42); /* faint red — touching it is too late */
+    background: var(--miss-line); /* faint red — touching it is too late */
   }
   .miss-tag {
     position: absolute; right: .5rem; top: .3rem;
     font-size: .55rem; font-weight: 800; letter-spacing: .16em;
-    text-transform: uppercase; color: rgba(217,130,112,.7);
+    text-transform: uppercase; color: var(--miss-tag);
   }
 
   /* ---------- Short landscape phones ---------- */
@@ -525,7 +571,7 @@
 
         <!-- Illustration: robot + gem -->
         <div class="menu-art flex items-center justify-center gap-4 py-2.5" aria-hidden="true">
-          <svg width="42" height="42" viewBox="0 0 48 48" fill="none">
+          <svg class="robot-art" width="42" height="42" viewBox="0 0 48 48" fill="none">
             <line x1="24" y1="4" x2="24" y2="10" stroke="#929990" stroke-width="2"/>
             <circle cx="24" cy="4" r="2.6" fill="#6BB6F3"/>
             <rect x="8" y="11" width="32" height="24" rx="7" fill="#F2F0E7"/>
@@ -547,6 +593,26 @@
         <p class="label mt-1.5 text-center" style="color: var(--dim)">
           <kbd class="kbd">←</kbd><kbd class="kbd">→</kbd> move · <kbd class="kbd">SPACE</kbd> grab · or tap
         </p>
+        <div class="mt-2 flex justify-center">
+          <button type="button" class="btn-icon theme-btn" aria-label="Toggle light mode" aria-pressed="false">
+            <svg class="theme-moon" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z" fill="currentColor"/>
+            </svg>
+            <svg class="theme-sun hidden" width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="4.2" fill="currentColor"/>
+              <g stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="12" y1="1.8" x2="12" y2="4.2"/>
+                <line x1="12" y1="19.8" x2="12" y2="22.2"/>
+                <line x1="1.8" y1="12" x2="4.2" y2="12"/>
+                <line x1="19.8" y1="12" x2="22.2" y2="12"/>
+                <line x1="4.9" y1="4.9" x2="6.6" y2="6.6"/>
+                <line x1="17.4" y1="17.4" x2="19.1" y2="19.1"/>
+                <line x1="4.9" y1="19.1" x2="6.6" y2="17.4"/>
+                <line x1="17.4" y1="6.6" x2="19.1" y2="4.9"/>
+              </g>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -567,6 +633,24 @@
               <path d="M11 5 6 9H3v6h3l5 4V5Z" fill="currentColor"/>
               <line x1="16" y1="9" x2="22" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
               <line x1="22" y1="9" x2="16" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button type="button" class="btn-icon theme-btn" aria-label="Toggle light mode" aria-pressed="false">
+            <svg class="theme-moon" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z" fill="currentColor"/>
+            </svg>
+            <svg class="theme-sun hidden" width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="4.2" fill="currentColor"/>
+              <g stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="12" y1="1.8" x2="12" y2="4.2"/>
+                <line x1="12" y1="19.8" x2="12" y2="22.2"/>
+                <line x1="1.8" y1="12" x2="4.2" y2="12"/>
+                <line x1="19.8" y1="12" x2="22.2" y2="12"/>
+                <line x1="4.9" y1="4.9" x2="6.6" y2="6.6"/>
+                <line x1="17.4" y1="17.4" x2="19.1" y2="19.1"/>
+                <line x1="4.9" y1="19.1" x2="6.6" y2="17.4"/>
+                <line x1="17.4" y1="6.6" x2="19.1" y2="4.9"/>
+              </g>
             </svg>
           </button>
         </div>
