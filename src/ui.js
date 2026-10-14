@@ -314,3 +314,21 @@ export function burstConfetti(count = 16) {
     setTimeout(() => c.remove(), 1900);
   }
 }
+
+/** Reveal safety: if the teaching card would cover a revealed gem
+ *  (miss reveals sit near the floor), slide the gem just above the card
+ *  so the player can always see the answer. No-op when already visible. */
+export function keepRevealVisible(el) {
+  const hint = document.getElementById('hintBar');
+  if (!el || !hint || hint.classList.contains('hidden')) return;
+  // Use the card's FINAL resting top — the rect during its pop-in scale
+  // animation would park the gem too low (center-origin scaling).
+  const r = hint.getBoundingClientRect();
+  const finalTop = r.top - (hint.offsetHeight - r.height) / 2;
+  const rect = el.getBoundingClientRect();
+  if (rect.bottom <= finalTop + 4) return; // already visible above the card
+  const dy = (finalTop - 10) - rect.bottom; // move up (negative)
+  const m = /translate\(-50%,\s*(-?[\d.]+)px\)/.exec(el.style.transform || '');
+  const curY = m ? parseFloat(m[1]) : 0;
+  el.style.transform = `translate(-50%, ${curY + dy}px)`;
+}

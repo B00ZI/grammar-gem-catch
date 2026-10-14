@@ -194,58 +194,133 @@ export function stopSpeech() {
 
 /* ---------------- background music (procedural loop) ---------------- */
 
-/** Gentle 4-bar chiptune — C, G, Am, F — eighth-note arpeggio + bass.
+/** A little chiptune that GROWS with the player instead of looping the
+ *  same four bars forever:
+ *   - 8-bar progression (C G Am F | C Am F G) — twice the old cycle
+ *   - a gentle melody joins from level 3
+ *   - soft hi-hats join from level 5 (or during any FEVER)
+ *   - FEVER brightens everything: melody an octave up + sparkle notes
  *  Scheduled with a lookahead timer; silent while muted; pausable.
  *  No audio files: everything is synthesized like the SFX. */
 const MUSIC_BPM = 104;
 const STEP_DUR = 60 / MUSIC_BPM / 2; // eighth notes
 const ARP_VOL = 0.045;
 const BASS_VOL = 0.085;
+const MEL_VOL = 0.05;
+const HAT_VOL = 0.03;
+const SPARK_VOL = 0.026;
+
+// One chord per bar — 8 bars before the pattern comes back around.
 const PROG = [
   [261.63, 329.63, 392.0, 329.63],  // C:  C4 E4 G4 E4
   [246.94, 293.66, 392.0, 293.66],  // G:  B3 D4 G4 D4
   [220.0, 261.63, 329.63, 261.63],  // Am: A3 C4 E4 C4
   [174.61, 220.0, 261.63, 220.0],   // F:  F3 A3 C4 A3
+  [261.63, 329.63, 392.0, 329.63],  // C:  C4 E4 G4 E4
+  [220.0, 261.63, 329.63, 261.63],  // Am: A3 C4 E4 C4
+  [174.61, 220.0, 261.63, 220.0],   // F:  F3 A3 C4 A3
+  [246.94, 293.66, 392.0, 293.66],  // G:  B3 D4 G4 D4
 ];
+
+// The singable part: 4 quarter notes per bar, written to fit PROG.
+const MEL = [
+  [392, 329.63, 261.63, 329.63],    // C:  G E C E
+  [293.66, 392, 493.88, 392],       // G:  D G B G
+  [440, 392, 329.63, 392],          // Am: A G E G
+  [349.23, 440, 523.25, 440],       // F:  F A C5 A
+  [392, 329.63, 261.63, 329.63],    // C:  G E C E
+  [440, 523.25, 440, 329.63],       // Am: A C5 A E
+  [349.23, 440, 349.23, 293.66],    // F:  F A F D
+  [392, 293.66, 392, 493.88],       // G:  D G D B
+];
+
+// Layers unlock as the player climbs (wired from main.js events).
+let musicLevel = 1;
+let musicFever = false;
+
+export function setMusicLayers(level, fever) {
+  musicLevel = level ?? 1;
+  musicFever = !!fever;
+}
+
+let noiseBuf = null;
+function musicNoiseBuffer() {
+  if (noiseBuf || !ctx) return noiseBuf;
+  noiseBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.05), ctx.sampleRate);
+  const data = noiseBuf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  return noiseBuf;
+}
+
+/** One synthesized voice note — the music's tiny building block. */
+function musicNote(type, freq, vol, t, dur, attack) {
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(vol, t + attack);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  osc.connect(g).connect(master);
+  osc.start(t);
+  osc.stop(t + dur + 0.02);
+}
+
+/** Soft closed hi-hat: a short noise blip through a high-pass filter. */
+function musicHat(t) {
+  const buf = musicNoiseBuffer();
+  if (!buf) return;
+  const src = ctx.createBufferSource();
+  const hp = ctx.createBiquadFilter();
+  const g = ctx.createGain();
+  src.buffer = buf;
+  hp.type = 'highpass';
+  hp.frequency.value = 6500;
+  g.gain.setValueAtTime(HAT_VOL, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.045);
+  src.connect(hp).connect(g).connect(master);
+  src.start(t);
+  src.stop(t + 0.06);
+}
+
+function playMusicStep(step, t) {
+  if (!ctx) return;
+  const bar = Math.floor(step / 8) % 8;
+  const inBar = step % 8;
+  const freq = PROG[bar][inBar % 4];
+
+  // 1) Arpeggio on every eighth — the backbone, always playing.
+  musicNote('square', freq, ARP_VOL, t, STEP_DUR * 0.92, 0.012);
+
+  // 2) Bass root on beats 1 and 3 — always playing.
+  if (inBar === 0 || inBar === 4) {
+    musicNote('triangle', freq / 2, BASS_VOL, t, STEP_DUR * 1.8, 0.02);
+  }
+
+  // 3) Melody — from level 3: quarter notes, doubled (triangle + sine)
+  //    so the tune sings over the arpeggio. FEVER lifts it an octave.
+  if (musicLevel >= 3 && inBar % 2 === 0) {
+    const note = MEL[bar][inBar / 2] * (musicFever ? 2 : 1);
+    musicNote('triangle', note, MEL_VOL, t, STEP_DUR * 1.55, 0.03);
+    musicNote('sine', note, MEL_VOL * 0.45, t, STEP_DUR * 1.55, 0.03);
+  }
+
+  // 4) Hi-hats — from level 5 (or during FEVER): off-beats only.
+  if ((musicLevel >= 5 || musicFever) && inBar % 2 === 1) {
+    musicHat(t);
+  }
+
+  // 5) FEVER sparkle: a bright note two octaves up at the bar accents.
+  if (musicFever && inBar % 4 === 0) {
+    musicNote('sine', freq * 4, SPARK_VOL, t, STEP_DUR * 0.8, 0.01);
+  }
+}
 
 let musicTimer = 0;
 let musicStep = 0;
 let musicNextTime = 0;
 let musicOn = false;
 let musicStarted = false; // a run asked for music — auto-pause shouldn't forget
-
-function playMusicStep(step, t) {
-  if (!ctx) return;
-  const bar = Math.floor(step / 8) % 4;
-  const inBar = step % 8;
-  const freq = PROG[bar][inBar % 4];
-
-  // Arpeggio note on every eighth (soft square).
-  const arp = ctx.createOscillator();
-  const arpGain = ctx.createGain();
-  arp.type = 'square';
-  arp.frequency.setValueAtTime(freq, t);
-  arpGain.gain.setValueAtTime(0.0001, t);
-  arpGain.gain.linearRampToValueAtTime(ARP_VOL, t + 0.012);
-  arpGain.gain.exponentialRampToValueAtTime(0.0001, t + STEP_DUR * 0.92);
-  arp.connect(arpGain).connect(master);
-  arp.start(t);
-  arp.stop(t + STEP_DUR);
-
-  // Bass root on beats 1 and 3 (triangle, an octave down).
-  if (inBar === 0 || inBar === 4) {
-    const bass = ctx.createOscillator();
-    const bassGain = ctx.createGain();
-    bass.type = 'triangle';
-    bass.frequency.setValueAtTime(freq / 2, t);
-    bassGain.gain.setValueAtTime(0.0001, t);
-    bassGain.gain.linearRampToValueAtTime(BASS_VOL, t + 0.02);
-    bassGain.gain.exponentialRampToValueAtTime(0.0001, t + STEP_DUR * 1.8);
-    bass.connect(bassGain).connect(master);
-    bass.start(t);
-    bass.stop(t + STEP_DUR * 2);
-  }
-}
 
 function scheduleMusicTick() {
   if (!musicOn || muted || !ctx) return;
@@ -254,7 +329,7 @@ function scheduleMusicTick() {
   while (musicNextTime < ctx.currentTime + 0.3) {
     playMusicStep(musicStep, musicNextTime);
     musicNextTime += STEP_DUR;
-    musicStep = (musicStep + 1) % 32; // 4 bars × 8 eighths
+    musicStep = (musicStep + 1) % 64; // 8 bars × 8 eighths
   }
 }
 
@@ -295,7 +370,12 @@ export function stopMusic() {
   pauseMusic();
 }
 
-/** Debug/test view of the music state. */
+/** Debug/test view of the music state (incl. which layers are active). */
 export function musicStatus() {
-  return { started: musicStarted, running: musicOn, step: musicStep, muted };
+  return {
+    started: musicStarted, running: musicOn, step: musicStep, muted,
+    level: musicLevel, fever: musicFever,
+    melody: musicLevel >= 3,                 // layer 2: singable lead
+    hats: musicLevel >= 5 || musicFever,     // layer 3: off-beat rhythm
+  };
 }

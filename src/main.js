@@ -15,6 +15,7 @@ import { initEngine, startGame, togglePause, debugStep } from './engine.js';
 import {
   initAudio, playSfx, toggleMute, isMuted, speak, stopSpeech,
   startMusic, pauseMusic, resumeMusic, stopMusic, musicStatus,
+  setMusicLayers,
 } from './audio.js';
 
 initUI();
@@ -81,6 +82,7 @@ bus.on('levelup', (level) => {
   if ($('#levelUpText')) $('#levelUpText').textContent = `LEVEL ${level}`;
   playSfx('levelup');
   burstConfetti(20);
+  setMusicLayers(state.level, state.fever.active); // the tune grows with you
 });
 
 bus.on('fever', (active) => {
@@ -89,6 +91,7 @@ bus.on('fever', (active) => {
     flashFever();
     burstConfetti(14);
   }
+  setMusicLayers(state.level, active); // FEVER brightens the music
 });
 
 bus.on('status', (status) => {
@@ -141,6 +144,7 @@ function beginRun() {
   hideOverlay('menu');
   hideOverlay('gameover');
   updateHUD();
+  setMusicLayers(1, false); // fresh run → music starts calm, grows as you climb
   startMusic();
   startGame();
 }

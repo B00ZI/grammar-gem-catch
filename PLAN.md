@@ -451,6 +451,19 @@ User request: more/better words, harder as levels grow, no repeats in a run, dif
 - [x] **Tier gating verified**: level N draws only tiers ≤N (L1 = tier 1 only; all 7 words still available as distractors at L3+ per unlocked pool); 4 unique options + correct always included
 - [x] 0 console errors; live start → tier-1 wave confirmed
 
+### Post-v1 addition — Simplified home, gentler pacing, evolving music ✅ (complete)
+- [x] **Home page simplified** (`index.html`): 3 rule cards (How to play / Scoring / Controls) → **1 short card** (move+grab keys, catch-high hint); subtitle shortened; menu text now 310 chars (was ~800); start button, best score, illustration, pronoun chips untouched; verified: cardCount=1, no "Scoring", chips=7, start works
+- [x] **Breathing room between phrases** (`config.js`): `waveGapMs` 650 → **1150** — sticker + completed sentence stay readable after each answer; verified behaviorally: still no wave at 700ms after a correct claim, wave spawned by 1.2s
+- [x] **Evolving background music** (`audio.js`): 4-bar loop → **8-bar progression** (C G Am F | C Am F G); new **melody layer** (quarter-note tune, triangle+sine double voice) unlocks at **level 3**; **hi-hat layer** (off-beat noise blips) unlocks at **level 5**; **FEVER** brightens everything (melody +1 octave, sparkle notes two octaves up, hats on regardless of level); `setMusicLayers(level, fever)` wired from main.js on beginRun (reset to calm), `levelup` and `fever` events; cycle length 32→64 steps; `musicStatus()` exposes layer flags for tests
+- [x] Verified live: L1 = melody/hats off → 33 correct driven to L5 with melody+hats unlocked at the right moments, FEVER seen with `music.fever=true`, scheduler advancing in real time; 0 console errors
+
+### Post-v1 addition — Miss line above robot, slower fall, double-gem fix ✅ (complete)
+- [x] **Miss line slightly above the robot** (`state.geometry.missY`, measured in `measure()` = robotTop − 8px ≈ 79–81px above floor): gems are counted missed **while still visible** instead of after fully leaving the screen; `update()` restructured so the correct gem is never pre-removed before the resolve (resolveMiss handles reveal + cleanup itself)
+- [x] **The missed gem stays on screen**: same reveal trick as a wrong pick (detach `el` → `.gem-correct` ring + pulse → `setRevealed`); new `keepRevealVisible(el)` in ui.js slides the reveal just above the teaching card (card covers the robot zone; computes the card's FINAL pop-in top so the park is animation-proof) — applied to both miss and low wrong-pick reveals
+- [x] **Slower fall**: `fallTimeSec` 9 → **12** (miss line is closer than the old floor, so full-fall time was retuned) — measured live: **10.8s from spawn to miss** at level 1 (was 9s)
+- [x] **Double-gem bug fixed** (pause → Home → Play showed 2 sets): root cause `actions.reset()` emptied `state.wave` BEFORE `clearWave()` could touch the elements, orphaning them. Fix: `startGame()` clears the wave **before** reset + engine listens `status === 'menu'` and clears immediately on going home. Verified with the exact repro: 0 gems after Home, **exactly 4** after Play (was 8)
+- [x] Verified end-to-end: claim works, miss at 10.8s with reveal text = answer, reveal above card + on screen, card dismiss → clean single wave, reveal cleaned on next spawn, 0 console errors
+
 ### Known limitations (documented, not blocking)
 - Trusted-keyboard `:focus-visible` can't be simulated in the test harness — verified via CSSOM instead
 - `browser.press` doesn't reach page JS in the harness — all input tests use dispatched events through the real handlers

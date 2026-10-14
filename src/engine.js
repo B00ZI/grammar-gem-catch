@@ -11,7 +11,7 @@
 import { config } from './config.js';
 import { state, actions, bus } from './state.js';
 import { nextWave, resetSpawner } from './spawner.js';
-import { flashLane, shakePlayArea, popup, popGem, shootLaser } from './ui.js';
+import { flashLane, shakePlayArea, popup, popGem, shootLaser, keepRevealVisible } from './ui.js';
 import { playSfx } from './audio.js';
 
 let rafId = 0;
@@ -52,12 +52,19 @@ export function initEngine() {
   });
 
   bus.on('claim', onClaim);
+
+  // Going home: drop any live gems immediately so a new run can never
+  // stack a second set on top of an abandoned one.
+  bus.on('status', (s) => {
+    if (s === 'menu') clearWave();
+  });
 }
 
 export function startGame() {
+  clearWave(); // fade out leftovers from a paused/abandoned run FIRST —
+               // actions.reset() empties state.wave and would orphan them
   actions.reset();
   resetSpawner(); // new run → fresh shuffled deck of questions
-  clearWave();
   measure();
   spawnWave();
   actions.setStatus('playing');
@@ -99,6 +106,9 @@ function frame(now) {
 
 function update(dt) {
   const { height } = state.geometry;
+  // Miss line sits just above the robot (measure()); fall speed is
+  // normalized to the full lane height so reading time stays stable.
+  const missY = state.geometry.missY > 50 ? state.geometry.missY : height;
   const ramp = 1 + config.speedPerLevel * (state.level - 1);
   const speed = ((height || 468) / config.fallTimeSec) * ramp;
 
@@ -116,15 +126,18 @@ function update(dt) {
     if (!gem.dead) gem.y += speed * dt;
   }
 
-  // Gems that reached the bottom line.
-  const fallen = state.wave.filter((g) => !g.dead && g.y > height);
-  if (fallen.length) {
-    for (const g of fallen) {
-      g.dead = true;
-      g.el?.remove();
+  // Gems that crossed the miss line (just above the robot — still visible).
+  const crossed = state.wave.filter((g) => !g.dead && g.y > missY);
+  if (crossed.length) {
+    if (crossed.some((g) => g.correct)) {
+      resolveMiss(); // reveals the gem that got away, then clears the rest
+    } else {
+      for (const g of crossed) {
+        g.dead = true;
+        g.el?.remove();
+      }
+      state.wave = state.wave.filter((g) => !g.dead);
     }
-    if (fallen.some((g) => g.correct)) resolveMiss();
-    else state.wave = state.wave.filter((g) => !g.dead);
   }
 
   // Safety net: wave emptied without an explicit resolution.
@@ -260,16 +273,32 @@ function resolveWrong(gem) {
   endWave();
   // Same teaching moment as a miss: answer + why before moving on.
   bus.emit('explain', { question: state.question, kind: 'wrong' });
+  if (revealedEl) keepRevealVisible(revealedEl); // never hide behind the card
 }
 
-/** Correct gem reached the bottom unclaimed. */
+/** Correct gem crossed the miss line. It stays ON SCREEN — highlighted
+ *  right where the miss happened — while the teaching card shows. */
 function resolveMiss() {
+  // Detach before endWave() so the cleanup leaves this element alone
+  // (same trick as the wrong-pick reveal).
+  const right = state.wave.find((g) => g.correct && !g.dead);
+  let missed = null;
+  if (right?.el) {
+    missed = right.el;
+    right.el = null;
+    missed.classList.add('gem-correct');
+    setRevealed(missed);
+  }
+
   actions.hitWrong();
   shakePlayArea();
   popup('TOO LATE!', { color: '#D98270' });
   playSfx('miss');
   endWave();
   bus.emit('explain', { question: state.question, kind: 'miss' });
+  // The card covers the robot zone — slide the gem just above it
+  // so the player can still see the one that got away.
+  if (missed) keepRevealVisible(missed);
 }
 
 /* ---------------- helpers ---------------- */
@@ -279,4 +308,15 @@ function measure() {
   if (!area) return;
   state.geometry.height = area.clientHeight;
   state.geometry.catchY = area.clientHeight * config.catchRatio;
+
+  // Miss line: slightly above the robot. A gem that crosses it is missed
+  // WHILE STILL VISIBLE — the player sees exactly which gem got away.
+  const robot = document.getElementById('robot');
+  if (robot && area.clientHeight) {
+    const areaTop = area.getBoundingClientRect().top;
+    const robotTop = robot.getBoundingClientRect().top;
+    state.geometry.missY = Math.max(120, robotTop - areaTop - 8);
+  } else {
+    state.geometry.missY = area.clientHeight * 0.87; // fallback ≈ robot top
+  }
 }

@@ -12,10 +12,11 @@ export const config = {
 
   // Physics — fall time is normalized to lane height so reading time is
   // identical on phones and desktops; levels then compress it.
-  fallTimeSec: 9,          // seconds to fall at level 1 (nice and readable)
+  fallTimeSec: 12,          // seconds to fall to the miss line at level 1 (~10.5s,
+                            // measured to the line just above the robot, not the floor)
   speedPerLevel: 0.18,     // +18% fall speed per level
   dtCap: 0.05,             // max seconds per frame (blocks tunneling after tab switch)
-  waveGapMs: 650,          // breather between waves (also acts as telegraph time)
+  waveGapMs: 1150,         // breathing room after each answer (read the feedback!)
 
   // Input
   moveThrottleMs: 110,     // min gap between repeated arrow moves
