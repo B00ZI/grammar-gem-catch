@@ -106,9 +106,12 @@ function frame(now) {
 
 function update(dt) {
   const { height } = state.geometry;
-  // Miss line sits just above the robot (measure()); fall speed is
-  // normalized to the full lane height so reading time stays stable.
+  // Miss line sits above the robot (measure()); a gem counts as missed the
+  // moment its BOTTOM edge touches the line — no need to pass through it.
+  // Fall speed is normalized to the full lane height so reading time is
+  // stable on phones and desktops alike.
   const missY = state.geometry.missY > 50 ? state.geometry.missY : height;
+  const gemH = state.geometry.gemH || 100;
   const ramp = 1 + config.speedPerLevel * (state.level - 1);
   const speed = ((height || 468) / config.fallTimeSec) * ramp;
 
@@ -126,8 +129,8 @@ function update(dt) {
     if (!gem.dead) gem.y += speed * dt;
   }
 
-  // Gems that crossed the miss line (just above the robot — still visible).
-  const crossed = state.wave.filter((g) => !g.dead && g.y > missY);
+  // Gems whose bottom edge TOUCHED the miss line (still fully visible).
+  const crossed = state.wave.filter((g) => !g.dead && g.y + gemH > missY);
   if (crossed.length) {
     if (crossed.some((g) => g.correct)) {
       resolveMiss(); // reveals the gem that got away, then clears the rest
@@ -183,6 +186,10 @@ function spawnWave() {
 
     state.wave.push({ lane, text, correct, y: 0, el, dead: false });
   }
+
+  // Gem height (layout px) — the miss line checks the gem's BOTTOM edge,
+  // so "touching the line" is a miss, not "fully passed through".
+  state.geometry.gemH = state.wave[0]?.el?.offsetHeight || state.geometry.gemH;
 
   waveActive = true;
   bus.emit('wave', wave.question); // ui.js renders prompt + owner badge
@@ -309,15 +316,15 @@ function measure() {
   state.geometry.height = area.clientHeight;
   state.geometry.catchY = area.clientHeight * config.catchRatio;
 
-  // Miss line: slightly above the robot. A gem that crosses it is missed
-  // WHILE STILL VISIBLE — the player sees exactly which gem got away.
+  // Miss line: a bit above the robot. A gem whose bottom TOUCHES the line
+  // is missed — the whole gem is still visible above the line.
   const robot = document.getElementById('robot');
   if (robot && area.clientHeight) {
     const areaTop = area.getBoundingClientRect().top;
     const robotTop = robot.getBoundingClientRect().top;
-    state.geometry.missY = Math.max(120, robotTop - areaTop - 8);
+    state.geometry.missY = Math.max(140, robotTop - areaTop - 36);
   } else {
-    state.geometry.missY = area.clientHeight * 0.87; // fallback ≈ robot top
+    state.geometry.missY = area.clientHeight * 0.81; // fallback ≈ robot top + margin
   }
 
   // Park the visible "too late" line right on the miss line.

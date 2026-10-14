@@ -471,6 +471,13 @@ User request: more/better words, harder as levels grow, no repeats in a run, dif
 - [x] **Hearts in the CENTER, highlighted**: `#lives` sits between the Level and Combo chips; hearts 20px (14px on narrow phones) with coral glow, dim outline when lost; verified DOM order [Level, hearts, Combo], hearts centered within 24px of header center, `data-lost` tracking works in the new spot
 - [x] Regression pass: popup Start → playing, claim +200, pause→Home→popup→Start = clean single wave (double-gem fix intact), 0 console errors
 
+### Post-v1 addition — Touch = miss, higher line, plain faint red line ✅ (complete)
+- [x] **Miss on TOUCH**: trigger is now the gem's BOTTOM edge touching the line (`g.y + gemH > missY`; `gemH` measured live per wave in `spawnWave`) — verified: fires with 0.6px overshoot (= one frame), the whole gem stays above the line, never passes through it
+- [x] **Line raised**: 36px above the robot track (was 8px; 107px above the floor at desktop size), fallback ratio 0.81, clamp min 140px
+- [x] **Plain faint red line**: solid `rgba(217,130,112,.42)` 2px — no dashes, no glow, no crawl animation (keyframes + reduced-motion entry removed); "Too late" tag toned to match
+- [x] **Reading time preserved**: line higher + touch trigger cut the time-to-miss, so `fallTimeSec` 12 → **15.5** — measured 10.6s from spawn to touch at level 1 (same gentle pace as before); computed transform verified equal to engine position (no visual lag)
+- [x] Reveal-above-card, hearts, popup flow re-verified; 0 console errors
+
 ### Known limitations (documented, not blocking)
 - Trusted-keyboard `:focus-visible` can't be simulated in the test harness — verified via CSSOM instead
 - `browser.press` doesn't reach page JS in the harness — all input tests use dispatched events through the real handlers

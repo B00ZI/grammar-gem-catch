@@ -354,21 +354,16 @@
     letter-spacing: .02em; color: var(--ink);
   }
 
-  /* ---------- Miss line (the "too late" line just above the robot) ---------- */
+  /* ---------- Miss line (the "too late" line above the robot) ---------- */
   .miss-line {
     position: absolute; left: 0; right: 0; top: 0; z-index: 5;
     height: 2px; pointer-events: none;
-    background: repeating-linear-gradient(90deg,
-      rgba(217,130,112,.8) 0 10px, transparent 10px 20px);
-    background-size: 20px 2px;
-    filter: drop-shadow(0 0 5px rgba(217,130,112,.4));
-    animation: lineCrawl 1s linear infinite;
+    background: rgba(217,130,112,.42); /* faint red — touching it is too late */
   }
-  @keyframes lineCrawl { to { background-position-x: 20px; } }
   .miss-tag {
     position: absolute; right: .5rem; top: .3rem;
     font-size: .55rem; font-weight: 800; letter-spacing: .16em;
-    text-transform: uppercase; color: rgba(217,130,112,.95);
+    text-transform: uppercase; color: rgba(217,130,112,.7);
   }
 
   /* ---------- Short landscape phones ---------- */
@@ -392,7 +387,7 @@
     .gem.gem-correct { animation: none !important; }
     .prompt-blank.filled { animation-duration: .01ms !important; }
     .fx-wrong { animation: none !important; }
-    .popup, .overlay-panel, #hintBar, .chip-jump, .eye, .miss-line { animation: none !important; }
+    .popup, .overlay-panel, #hintBar, .chip-jump, .eye { animation: none !important; }
     .confetti { display: none !important; }
   }
 </style>

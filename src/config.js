@@ -12,8 +12,9 @@ export const config = {
 
   // Physics — fall time is normalized to lane height so reading time is
   // identical on phones and desktops; levels then compress it.
-  fallTimeSec: 12,          // seconds to fall to the miss line at level 1 (~10.5s,
-                            // measured to the line just above the robot, not the floor)
+  fallTimeSec: 15.5,        // ~10.3s for a gem to reach the miss line at level 1
+                            // (line sits higher AND counts on touch — slower fall
+                            // keeps the reading time gentle)
   speedPerLevel: 0.18,     // +18% fall speed per level
   dtCap: 0.05,             // max seconds per frame (blocks tunneling after tab switch)
   waveGapMs: 1150,         // breathing room after each answer (read the feedback!)

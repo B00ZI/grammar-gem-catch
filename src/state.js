@@ -23,7 +23,7 @@ export const state = {
 
   fever: { charge: 0, active: false, timer: 0 },
 
-  geometry: { height: 0, catchY: 0, missY: 0 },
+  geometry: { height: 0, catchY: 0, missY: 0, gemH: 100 },
 };
 
 /* ---------------- event bus ---------------- */
