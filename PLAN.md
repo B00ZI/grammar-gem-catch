@@ -464,6 +464,13 @@ User request: more/better words, harder as levels grow, no repeats in a run, dif
 - [x] **Double-gem bug fixed** (pause → Home → Play showed 2 sets): root cause `actions.reset()` emptied `state.wave` BEFORE `clearWave()` could touch the elements, orphaning them. Fix: `startGame()` clears the wave **before** reset + engine listens `status === 'menu'` and clears immediately on going home. Verified with the exact repro: 0 gems after Home, **exactly 4** after Play (was 8)
 - [x] Verified end-to-end: claim works, miss at 10.8s with reveal text = answer, reveal above card + on screen, card dismiss → clean single wave, reveal cleaned on next spawn, 0 console errors
 
+### Post-v1 addition — Visible miss line, popup home, hearts centered, mute in pause ✅ (complete)
+- [x] **Visible "too late" line** (`#missLine` in playArea): marching-ants coral dashed line + tiny "Too late" tag; `measure()` parks it exactly on `state.geometry.missY` (matches within 0.02px, re-positions when the viewport changes); verified: miss fires with **0.2px overshoot** — the gem's top touches the line when the miss counts, gem still visible; miss reveal + above-card park unchanged; reduced-motion kills the crawl
+- [x] **Home = popup like pause**: full-page welcome replaced by compact `.overlay-panel` inside `#playArea` (title, one-liner, small robot+gem art, Start, Best, kbd controls hint); the field + demo gems show behind the dim; short-landscape media block compacts all popups + hides art; removed dead CSS (`#overlayMenu` old block, `welcome-inner`, `rule-card`, `pronoun-chip`, `step-num`)
+- [x] **Mute button moved into the pause card** (ids `muteBtn`/`iconSoundOn`/`iconSoundOff` preserved → main.js binding unchanged); HUD top row now Score | hearts | pause only; verified: pause card contains mute, toggle flips `isMuted` + icons + `aria-pressed`
+- [x] **Hearts in the CENTER, highlighted**: `#lives` sits between the Level and Combo chips; hearts 20px (14px on narrow phones) with coral glow, dim outline when lost; verified DOM order [Level, hearts, Combo], hearts centered within 24px of header center, `data-lost` tracking works in the new spot
+- [x] Regression pass: popup Start → playing, claim +200, pause→Home→popup→Start = clean single wave (double-gem fix intact), 0 console errors
+
 ### Known limitations (documented, not blocking)
 - Trusted-keyboard `:focus-visible` can't be simulated in the test harness — verified via CSSOM instead
 - `browser.press` doesn't reach page JS in the harness — all input tests use dispatched events through the real handlers

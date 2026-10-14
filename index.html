@@ -129,18 +129,20 @@
     .hud-label { font-size: .45rem; letter-spacing: .1em; }
     .hud-num { font-size: .78rem; }
     .stat-chip { min-width: 2.9rem; padding: .15rem .4rem; }
-    [data-heart] { width: 11px; height: 11px; }
+    [data-heart] { width: 14px; height: 14px; }
     .btn-icon { width: 28px; height: 28px; }
   }
 
-  /* Lives: real hearts — filled coral while alive, dim outline when lost */
+  /* Lives: real hearts in the CENTER of the HUD — big and glowing while alive */
   [data-heart] {
-    display: inline-block; width: 13px; height: 13px; flex-shrink: 0;
+    display: inline-block; width: 20px; height: 20px; flex-shrink: 0;
     fill: var(--coral);
+    filter: drop-shadow(0 0 6px rgba(217, 130, 112, .5));
     transition: fill .15s ease, opacity .15s ease;
   }
   [data-heart][data-lost] {
     fill: none; stroke: var(--line); stroke-width: 2.2; opacity: .85;
+    filter: none;
   }
 
   /* ---------- Prompt ---------- */
@@ -352,29 +354,21 @@
     letter-spacing: .02em; color: var(--ink);
   }
 
-  /* ---------- Welcome ---------- */
-  #overlayMenu {
-    position: absolute; inset: 0; z-index: 40;
-    overflow-y: auto; overscroll-contain;
-    background: var(--bg);
-    display: flex; justify-content: center;
-    padding: 1.5rem 1rem 1.25rem;
+  /* ---------- Miss line (the "too late" line just above the robot) ---------- */
+  .miss-line {
+    position: absolute; left: 0; right: 0; top: 0; z-index: 5;
+    height: 2px; pointer-events: none;
+    background: repeating-linear-gradient(90deg,
+      rgba(217,130,112,.8) 0 10px, transparent 10px 20px);
+    background-size: 20px 2px;
+    filter: drop-shadow(0 0 5px rgba(217,130,112,.4));
+    animation: lineCrawl 1s linear infinite;
   }
-  .welcome-inner { width: 100%; max-width: 26rem; display: flex; flex-direction: column; gap: 1rem; }
-  .rule-card { padding: .8rem .9rem; }
-  .rule-card ul { margin-top: .5rem; display: flex; flex-direction: column; gap: .35rem; }
-  .pronoun-chip {
-    display: inline-block; padding: .25rem .6rem; border-radius: 999px;
-    border: 1px solid rgba(107,182,243,.4); color: var(--lime);
-    font-weight: 700; font-size: .72rem; background: rgba(107,182,243,.06);
-  }
-  .pronoun-chip.locked { border-color: var(--line); color: var(--dim); background: transparent; }
-  .step-num {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 1.15rem; height: 1.15rem; border-radius: 999px; margin-right: .45rem;
-    background: rgba(107,182,243,.12); color: var(--lime);
-    font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: .6rem;
-    flex-shrink: 0;
+  @keyframes lineCrawl { to { background-position-x: 20px; } }
+  .miss-tag {
+    position: absolute; right: .5rem; top: .3rem;
+    font-size: .55rem; font-weight: 800; letter-spacing: .16em;
+    text-transform: uppercase; color: rgba(217,130,112,.95);
   }
 
   /* ---------- Short landscape phones ---------- */
@@ -383,6 +377,11 @@
     .lane-num { top: .2rem; font-size: .5rem; }
     .robot-body { width: 44px; height: 44px; }
     .hud-num { font-size: .8rem; }
+    /* keep popups usable on short screens */
+    .menu-art { display: none; }
+    .overlay { padding: .5rem; }
+    .overlay-panel { padding: .8rem 1rem; max-height: 100%; overflow-y: auto; }
+    .overlay-title { font-size: 1rem; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -393,7 +392,7 @@
     .gem.gem-correct { animation: none !important; }
     .prompt-blank.filled { animation-duration: .01ms !important; }
     .fx-wrong { animation: none !important; }
-    .popup, .overlay-panel, #hintBar, .chip-jump, .eye { animation: none !important; }
+    .popup, .overlay-panel, #hintBar, .chip-jump, .eye, .miss-line { animation: none !important; }
     .confetti { display: none !important; }
   }
 </style>
@@ -402,77 +401,6 @@
 <body>
 
 <div id="app" class="relative z-10 mx-auto flex h-[100dvh] w-full max-w-3xl flex-col overflow-hidden">
-
-  <!-- ══════════ WELCOME / HOME ══════════ -->
-  <div id="overlayMenu">
-    <div class="welcome-inner">
-
-      <!-- Brand -->
-      <div class="flex items-center gap-2.5">
-        <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
-          <polygon points="12,2 22,7.5 22,16.5 12,22 2,16.5 2,7.5" fill="#6BB6F3"/>
-        </svg>
-        <span class="label" style="color: var(--dim)">Grammar arcade</span>
-      </div>
-
-      <div>
-        <h1 class="font-grotesk text-[1.75rem] font-bold leading-tight tracking-tight text-ink md:text-[2.1rem]">
-          Grammar Gem&nbsp;Catch
-        </h1>
-        <p class="mt-1.5 text-sm text-dim">
-          Catch the word that <b class="text-lime font-semibold">completes the sentence</b>.
-        </p>
-      </div>
-
-      <!-- Illustration: robot + gem -->
-      <div class="panel flex items-center justify-center gap-6 py-4" aria-hidden="true">
-        <svg width="56" height="56" viewBox="0 0 48 48" fill="none">
-          <line x1="24" y1="4" x2="24" y2="10" stroke="#929990" stroke-width="2"/>
-          <circle cx="24" cy="4" r="2.6" fill="#6BB6F3"/>
-          <rect x="8" y="11" width="32" height="24" rx="7" fill="#F2F0E7"/>
-          <rect class="eye" x="13" y="18" width="8" height="7" rx="2.5" fill="#222623"/>
-          <rect class="eye" x="27" y="18" width="8" height="7" rx="2.5" fill="#222623"/>
-          <rect class="mouth" x="18" y="29" width="12" height="2.4" rx="1.2" fill="#222623"/>
-          <path class="smile" d="M16.5 28.5 Q24 34.5 31.5 28.5" stroke="#222623" stroke-width="2.4" fill="none" stroke-linecap="round"/>
-          <rect x="12" y="37" width="8" height="5" rx="2" fill="#929990"/>
-          <rect x="28" y="37" width="8" height="5" rx="2" fill="#929990"/>
-        </svg>
-        <svg width="52" height="58" viewBox="0 0 52 58" aria-hidden="true">
-          <polygon points="26,1 51,14.5 51,43.5 26,57 1,43.5 1,14.5" fill="#6BB6F3"/>
-          <text x="26" y="34" text-anchor="middle" font-family="Inter, sans-serif" font-weight="800" font-size="15" fill="#171918">my</text>
-        </svg>
-      </div>
-
-      <!-- Start -->
-      <button id="startBtn" type="button"
-              class="btn btn-primary w-full py-3.5 text-base tracking-wide">
-        Start game
-      </button>
-      <p class="label -mt-1.5 text-center">Best <span id="bestScoreMenu" style="color: var(--ink)">000000</span></p>
-
-      <!-- How to play — one short card (the game teaches the rest) -->
-      <section class="panel rule-card">
-        <h2 class="label">How to play</h2>
-        <ul class="text-[.8rem] leading-relaxed text-dim">
-          <li><b class="text-ink">Move</b> <kbd class="kbd">←</kbd><kbd class="kbd">→</kbd> or tap a lane · <b class="text-ink">Grab</b> <kbd class="kbd">SPACE</kbd> or <kbd class="kbd">1</kbd>–<kbd class="kbd">4</kbd></li>
-          <li>Catch the gem that completes the sentence — <b class="text-ink">higher = more points</b>. 3 lives, have fun!</li>
-        </ul>
-      </section>
-
-      <!-- Pronouns -->
-      <div class="flex flex-wrap items-center justify-center gap-1.5">
-        <span class="pronoun-chip">my</span>
-        <span class="pronoun-chip">your</span>
-        <span class="pronoun-chip">our</span>
-        <span class="pronoun-chip">their</span>
-        <span class="pronoun-chip locked">his</span>
-        <span class="pronoun-chip locked">her</span>
-        <span class="pronoun-chip locked">its</span>
-      </div>
-      <p class="label -mt-2 text-center">his · her · its unlock at level 3</p>
-
-    </div>
-  </div>
 
   <!-- ── HUD ── -->
   <header class="hud flex shrink-0 items-center justify-between px-3 py-2 md:px-6">
@@ -483,24 +411,24 @@
         <b id="score" class="hud-num">000000</b>
       </div>
     </div>
-    <!-- Center: level + combo chips -->
+    <!-- Center: hearts take the middle — level + combo flank them -->
     <div class="flex items-center gap-1.5 md:gap-2.5">
       <div class="stat-chip">
         <span class="hud-label">Level</span>
         <b id="level" class="hud-num">1</b>
+      </div>
+      <div id="lives" class="flex items-center gap-1" aria-label="Lives" role="img">
+        <svg data-heart viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35Z"/></svg>
+        <svg data-heart viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35Z"/></svg>
+        <svg data-heart viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35Z"/></svg>
       </div>
       <div id="comboChip" class="stat-chip">
         <span class="hud-label">Combo</span>
         <b id="combo" class="hud-num">&times;1</b>
       </div>
     </div>
-    <!-- Right: lives + buttons -->
-    <div class="flex flex-1 items-center justify-end gap-2 md:gap-3">
-      <div id="lives" class="flex items-center gap-1" aria-label="Lives" role="img">
-        <svg data-heart viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35Z"/></svg>
-        <svg data-heart viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35Z"/></svg>
-        <svg data-heart viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35Z"/></svg>
-      </div>
+    <!-- Right: pause (sound lives in the pause card, to save space) -->
+    <div class="flex flex-1 items-center justify-end">
       <button id="pauseBtn" type="button" class="btn-icon" aria-label="Pause">
         <svg id="iconPause" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
           <rect x="1" y="1" width="3.4" height="10" rx="1.2" fill="currentColor"/>
@@ -508,18 +436,6 @@
         </svg>
         <svg id="iconPlay" class="hidden" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
           <path d="M2.5 1.5 L10.5 6 L2.5 10.5 Z" fill="currentColor"/>
-        </svg>
-      </button>
-      <button id="muteBtn" type="button" class="btn-icon" aria-label="Toggle sound" aria-pressed="false">
-        <svg id="iconSoundOn" width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M11 5 6 9H3v6h3l5 4V5Z" fill="currentColor"/>
-          <path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          <path d="M18.5 5.5a9 9 0 0 1 0 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <svg id="iconSoundOff" class="hidden" width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M11 5 6 9H3v6h3l5 4V5Z" fill="currentColor"/>
-          <line x1="16" y1="9" x2="22" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          <line x1="22" y1="9" x2="16" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
       </button>
     </div>
@@ -576,6 +492,11 @@
       </div>
     </div>
 
+    <!-- "Too late" line: a gem that touches this line counts as missed -->
+    <div id="missLine" class="miss-line" aria-hidden="true">
+      <span class="miss-tag">Too late</span>
+    </div>
+
     <!-- Robot indicator -->
     <div class="pointer-events-none absolute inset-x-0 bottom-0 z-10">
       <div class="robot-track" id="robot" style="--lane: 1">
@@ -601,6 +522,39 @@
 
     <div id="fxLayer" class="pointer-events-none absolute inset-0 z-20"></div>
 
+    <!-- Home menu: same popup style as pause — the field shows behind it -->
+    <div id="overlayMenu" class="overlay">
+      <div class="panel overlay-panel">
+        <p class="overlay-title">Grammar Gem Catch</p>
+        <p class="mt-1 text-[.78rem] leading-snug text-dim">Catch the word that completes the sentence.</p>
+
+        <!-- Illustration: robot + gem -->
+        <div class="menu-art flex items-center justify-center gap-4 py-2.5" aria-hidden="true">
+          <svg width="42" height="42" viewBox="0 0 48 48" fill="none">
+            <line x1="24" y1="4" x2="24" y2="10" stroke="#929990" stroke-width="2"/>
+            <circle cx="24" cy="4" r="2.6" fill="#6BB6F3"/>
+            <rect x="8" y="11" width="32" height="24" rx="7" fill="#F2F0E7"/>
+            <rect class="eye" x="13" y="18" width="8" height="7" rx="2.5" fill="#222623"/>
+            <rect class="eye" x="27" y="18" width="8" height="7" rx="2.5" fill="#222623"/>
+            <rect class="mouth" x="18" y="29" width="12" height="2.4" rx="1.2" fill="#222623"/>
+            <path class="smile" d="M16.5 28.5 Q24 34.5 31.5 28.5" stroke="#222623" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+            <rect x="12" y="37" width="8" height="5" rx="2" fill="#929990"/>
+            <rect x="28" y="37" width="8" height="5" rx="2" fill="#929990"/>
+          </svg>
+          <svg width="36" height="40" viewBox="0 0 52 58" aria-hidden="true">
+            <polygon points="26,1 51,14.5 51,43.5 26,57 1,43.5 1,14.5" fill="#6BB6F3"/>
+            <text x="26" y="34" text-anchor="middle" font-family="Inter, sans-serif" font-weight="800" font-size="15" fill="#171918">my</text>
+          </svg>
+        </div>
+
+        <button id="startBtn" type="button" class="btn btn-primary w-full py-3.5 text-base tracking-wide">Start game</button>
+        <p class="label mt-2.5 text-center">Best <span id="bestScoreMenu" style="color: var(--ink)">000000</span></p>
+        <p class="label mt-1.5 text-center" style="color: var(--dim)">
+          <kbd class="kbd">←</kbd><kbd class="kbd">→</kbd> move · <kbd class="kbd">SPACE</kbd> grab · or tap
+        </p>
+      </div>
+    </div>
+
     <!-- Pause overlay -->
     <div id="overlayPause" class="overlay hidden">
       <div class="panel overlay-panel">
@@ -608,6 +562,18 @@
         <div class="mt-4 flex items-center justify-center gap-2.5">
           <button id="resumeBtn" type="button" class="btn btn-primary px-6 py-2.5 text-sm">Resume</button>
           <button id="pauseHomeBtn" type="button" class="btn btn-ghost px-5 py-2.5 text-sm">Home</button>
+          <button id="muteBtn" type="button" class="btn-icon" aria-label="Toggle sound" aria-pressed="false">
+            <svg id="iconSoundOn" width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M11 5 6 9H3v6h3l5 4V5Z" fill="currentColor"/>
+              <path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M18.5 5.5a9 9 0 0 1 0 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <svg id="iconSoundOff" class="hidden" width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M11 5 6 9H3v6h3l5 4V5Z" fill="currentColor"/>
+              <line x1="16" y1="9" x2="22" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <line x1="22" y1="9" x2="16" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
         </div>
       </div>
     </div>

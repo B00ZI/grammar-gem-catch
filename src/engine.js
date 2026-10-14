@@ -319,4 +319,8 @@ function measure() {
   } else {
     state.geometry.missY = area.clientHeight * 0.87; // fallback ≈ robot top
   }
+
+  // Park the visible "too late" line right on the miss line.
+  const line = document.getElementById('missLine');
+  if (line) line.style.top = `${state.geometry.missY}px`;
 }
